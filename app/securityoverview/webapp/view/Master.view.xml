@@ -3,8 +3,6 @@
     xmlns:m="sap.m"
     xmlns:mvc="sap.ui.core.mvc"
     xmlns:core="sap.ui.core">
-    <!-- HACK THE FUTURE Challenge: here we have code to represent the state when no location is selected--> 
-    <!-- You will have to write XML controls for what happens when a location is selected -->
     <ObjectPageLayout
         id="id.ObjectPageLayout"
         busy="{appView>/busy}"
@@ -14,7 +12,7 @@
         <headerTitle>
             <ObjectPageDynamicHeaderTitle>
                 <content>
-                    <m:Title text="This is your platform to monitor around your base" />
+                    <m:Title text="Subnautic Security Terminal" />
                 </content>
             </ObjectPageDynamicHeaderTitle>
         </headerTitle>
@@ -22,24 +20,15 @@
         <headerContent>
             <ObjectPageDynamicHeaderTitle>
                 <content>
-                    <m:HBox>
-                        <m:Input
-                            class="sapUiTinyMargin"
-                            placeholder="Enter the area you want to observe"
+                    <m:HBox alignItems="Center">
+                        <m:Select
+                            id="locationSelect"
                             change="onSelectLocation"
-                        />
-                        <m:VBox binding="{path:'/checkCameraAvailability()'}">
-                            <core:Icon src="sap-icon://video"
-                                visible="{value}"
-                                color="Positive"
-                                tooltip="All cameras available" />
-                            <core:Icon src="sap-icon://error"
-                                visible="{= !${value} }"
-                                color="Negative"
-                                tooltip="There are cameras down" />
-                        </m:VBox>
+                            width="250px"
+                            items="{/SubnauticLocation}">
+                            <core:Item key="{ID}" text="{name}" />
+                        </m:Select>
                     </m:HBox>
-
                 </content>
             </ObjectPageDynamicHeaderTitle>
         </headerContent>
@@ -48,22 +37,38 @@
             <ObjectPageSection showTitle="false" visible="{= !${appView>/hasSelectedLocation} }">
                 <subSections>
                     <ObjectPageSubSection class="sapUxAPObjectPageSubSectionFitContainer">
-                        <m:IllustratedMessage
-                            title="No camera images"
-                            description="Please assign a location to observe."
-                        />
+                        <m:Table
+                            headerText="Camera Installation Status"
+                            items="{path: '/SubnauticLocation', parameters: {$expand: 'closestCamera'}}">
+                            <m:columns>
+                                <m:Column><m:Text text="Location" /></m:Column>
+                                <m:Column><m:Text text="Camera Status" /></m:Column>
+                            </m:columns>
+                            <m:items>
+                                <m:ColumnListItem>
+                                    <m:cells>
+                                        <m:Text text="{name}" />
+                                        <m:ObjectStatus
+                                            text="{closestCamera/status}"
+                                            state="{= ${closestCamera/status} === 'Online' ? 'Success' : 'Error' }" />
+                                    </m:cells>
+                                </m:ColumnListItem>
+                            </m:items>
+                        </m:Table>
                     </ObjectPageSubSection>
                 </subSections>
             </ObjectPageSection>
             <ObjectPageSection showTitle="false" visible="{appView>/hasSelectedLocation}">
                 <subSections>
                     <ObjectPageSubSection class="sapUxAPObjectPageSubSectionFitContainer">
-
+                        <m:VBox class="sapUiSmallMargin">
+                            <m:Title text="{subnauticLocation/name}" titleStyle="H2" />
+                            <m:Text text="{subnauticLocation/description}" class="sapUiSmallMarginBottom"/>
+                            <m:Image src="{recording}" width="100%" />
+                        </m:VBox>
                     </ObjectPageSubSection>
                 </subSections>
-
             </ObjectPageSection>
         </sections>
-
     </ObjectPageLayout>
 </mvc:View>
