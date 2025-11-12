@@ -6,24 +6,24 @@
     <!-- HACK THE FUTURE Challenge: several properties are missing to make this a succesful save-->
     <Dialog id="_IDGenDialog" title="Add new symbol" draggable="true">
         <content>
-            <VBox class="sapUiSmallMargin" id="formContainer">
-                <f:SimpleForm id="SimpleFormChangeColumn_twoGroups234" editable="true" layout="ColumnLayout" columnsM="2" columnsL="2" columnsXL="2">
+            <FlexBox class="sapUiSmallMargin" id="formContainer" justifyContent="Center">
+                <f:SimpleForm id="SimpleFormChangeColumn_twoGroups234" width="20rem" editable="true" layout="ColumnLayout" columnsM="1" columnsL="1" columnsXL="1">
                     <f:content>
                         <Label id="_IDGenLabel2" text="Icon" />
                         <Input id="_IDGenInput1" required="true" value="{create>/symbol}" />
                         <Label id="_IDGenLabel3" text="Where abouts" />
                         <Input id="_IDGenInput2" required="true" value="{create>/whereFound}" />
+                        <Label id="_IDGenLabel4" text="Language" />
+                        <Input id="_IDGenInput3" required="true" value="{create>/language}" />
                     </f:content>
                 </f:SimpleForm>
-            </VBox>
+            </FlexBox>
         </content>
-        <footer>
-            <Toolbar id="_IDGenToolbar">
-                <content>
-                    <ToolbarSpacer id="_IDGenToolbarSpacer4" />
-                    <Button id="_IDGenButton4" text="Reject" type="Reject" press="closeDialog" ariaHasPopup="Dialog" />
-                </content>
-            </Toolbar>
-        </footer>
+        <beginButton>
+            <Button id="saveButton" text="Save" type="Accept" press="onSave" />
+        </beginButton>
+        <endButton>
+            <Button id="_IDGenButton4" text="Reject" type="Reject" press="closeDialog" ariaHasPopup="Dialog" />
+        </endButton>
     </Dialog>
 </core:FragmentDefinition>

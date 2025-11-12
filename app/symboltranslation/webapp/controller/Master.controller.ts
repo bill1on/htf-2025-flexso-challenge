@@ -42,7 +42,7 @@ export default class Master extends Controller {
     this.creationDialog.open();
   }
 
-  save() {
+  onSave() {
     //This is save logic for creating a new Symbol
     const listBinding = this.getView()
       ?.getModel()
