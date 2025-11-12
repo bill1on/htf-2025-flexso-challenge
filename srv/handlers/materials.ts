@@ -37,119 +37,143 @@ export const order = async (req: cds.Request) => {
 };
 
 export const produce = async (req: cds.Request) => {
-  // remove 2 of each amount for all materials
-  // produce in the background
   const productId = req.params[0] as cds.__UUID;
 
+  // Haal materialen op voor dit product
   const allMaterials = (await SELECT.from(Material)
     .columns("ID", "amountInStock")
-    .where({ product: productId })) as unknown as material[];
+    .where({ product: productId })) as any[];
 
-  const check = allMaterials.every((material: material) => {
-    return parseInt(material.amountInStock.toString()) >= 2;
-  });
+  // Controleer of er genoeg voorraad is (minstens 2 van elk)
+  const enoughStock = allMaterials.every(m => (m.amountInStock || 0) >= 2);
 
-  if (check) {
-    new Promise(() => runInBackgroundProduce(allMaterials, productId));
+  if (!enoughStock) {
+    req.error(404, "Not enough material in stock to produce this camera.");
+    return;
   }
-};
 
-async function runInBackgroundProduce(
-  allMaterials: material[],
-  productId: cds.__UUID
-) {
-  //Remove the needed materials from stock
-  allMaterials.forEach(async (m: material) => {
+  // Verlaag materiaalvoorraad
+  for (const m of allMaterials) {
     await UPDATE.entity(Material)
       .set({ amountInStock: m.amountInStock - 2 })
       .where({ ID: m.ID });
-  });
+  }
 
-  //start production
+  // Start de productie asynchroon, zodat frontend niet blokkeert
+  runInBackgroundProduce(productId)
+    .then(() => console.log(`Production for ${productId} completed.`))
+    .catch(err => console.error("Production failed:", err));
 
+  return { message: "Production started in background." };
+};
+
+// ✅ De echte productieflow
+async function runInBackgroundProduce(productId: cds.__UUID) {
+  // Haal alle production flows op, op volgorde van position
   const flows = (await SELECT.from(Production)
     .orderBy("position")
-    .where({ product: productId })) as unknown as production[];
+    .where({ product: productId })) as any[];
 
-  const production = setInterval(async () => {
-    const stateFlow1 = (await SELECT.from(State).where({
-      production: flows[0].ID,
-      state: "Neutral",
-    })) as unknown as state[];
-    const stateFlow2 = (await SELECT.from(State).where({
-      production: flows[1].ID,
-      state: "Neutral",
-    })) as unknown as state[];
-    const stateFlow3 = (await SELECT.from(State).where({
-      production: flows[2].ID,
-      state: "Neutral",
-    })) as unknown as state[];
+  if (!flows.length) {
+    console.warn(`No production flows found for product ${productId}`);
+    return;
+  }
 
-    const neutralState1 = stateFlow1[0];
-    const neutralState2 = stateFlow2[0];
-    const neutralState3 = stateFlow3[0];
-    //every 10 seconds, the production will have progress
-    if (neutralState1.value > 0) {
-      //add a state 'Positive' with value 5 => indicating part of the process is succeeded
-      const newState = {
-        state: "Positive",
-        value: 5,
-        production: neutralState1.production,
-      };
+  console.log(`Starting production for product ${productId}...`);
 
-      const newValue = neutralState1.value - 5;
+  // Start een interval om elke 10s de status bij te werken
+  const intervalId = setInterval(async () => {
+    try {
+      // Zoek eerste flow met 'Neutral' state > 0
+      for (const flow of flows) {
+        const [neutralState] = (await SELECT.from(State).where({
+          production: flow.ID,
+          state: "Neutral",
+        })) as any[];
 
-      await INSERT.into(State).entries([newState]);
-      await UPDATE.entity(State)
-        .set({ value: newValue })
-        .where({ ID: neutralState1.ID });
-    } else if (neutralState2.value > 0) {
-      //add a state 'Positive' with value 5 => indicating part of the process is succeeded
-      const newState = {
-        state: "Positive",
-        value: 5,
-        production: neutralState2.production,
-      };
-      const newValue = neutralState2.value - 5;
+        if (neutralState && neutralState.value > 0) {
+          const newValue = Math.max(neutralState.value - 5, 0);
 
-      await INSERT.into(State).entries([newState]);
-      await UPDATE.entity(State)
-        .set({ value: newValue })
-        .where({ ID: neutralState2.ID });
-    } else if (neutralState3.value > 0) {
-      //add a state 'Positive' with value 5 => indicating part of the process is succeeded
-      const newState = {
-        state: "Positive",
-        value: 5,
-        production: neutralState3.production,
-      };
-      const newValue = neutralState3.value - 5;
+          // Voeg nieuwe 'Positive'-state toe
+          await INSERT.into(State).entries({
+            state: "Positive",
+            value: 5,
+            production: flow.ID,
+          });
 
-      await INSERT.into(State).entries([newState]);
-      await UPDATE.entity(State)
-        .set({ value: newValue })
-        .where({ ID: neutralState3.ID });
-    } else {
-      production.close();
-      const currentAmountCamera = await SELECT.from(ProductCamera)
+          // Update bestaande 'Neutral'-state
+          await UPDATE.entity(State)
+            .set({ value: newValue })
+            .where({ ID: neutralState.ID });
+
+          console.log(`Progressed flow ${flow.ID} by 5`);
+          return; // wacht tot volgende interval
+        }
+      }
+
+      // Als alle flows klaar zijn (geen Neutral > 0 meer)
+      clearInterval(intervalId);
+
+      // Verhoog de productvoorraad met 1
+      const [camera] = (await SELECT.from(ProductCamera)
         .columns("amountInStock")
-        .where({ ID: productId });
+        .where({ ID: productId })) as any[];
+
+      const newAmount = (camera.amountInStock || 0) + 1;
+
       await UPDATE.entity(ProductCamera)
-        .set({ amountInStock: currentAmountCamera[0].amountInStock + 1 })
+        .set({ amountInStock: newAmount })
         .where({ ID: productId });
+
+      console.log(`✅ Production completed for product ${productId}`);
+
+    } catch (err) {
+      console.error("Error during production flow:", err);
+      clearInterval(intervalId);
     }
   }, 10000);
 }
 
 export const replaceInstallation = async (req: cds.Request) => {
-  //HACK THE FUTURE Challenge:
-  //An instellation refers to a product camera that is installed somewhere
-  //When an installation is broken, and there are cameras in stock, we should be able to replace the broken installation
-  const { id } = req.data;
-  const installation = await SELECT.from(Installation)
-    .columns("product", "status")
-    .where({ ID: id });
+  try {
+    const { id } = req.data;
 
-  const productID = installation[0].product;
+    // 1️⃣ Haal installatie op
+    const [installation] = await SELECT.from(Installation)
+      .columns("ID", "product", "status")
+      .where({ ID: id });
 
+    if (!installation) {
+      req.error(404, "Installation not found.");
+      return;
+    }
+
+    const productId = installation.product;
+
+    // 2️⃣ Check camera voorraad
+    const [camera] = await SELECT.from(ProductCamera)
+      .columns("amountInStock")
+      .where({ ID: productId });
+
+    if (!camera || camera.amountInStock <= 0) {
+      req.error(400, "❌ No cameras in stock to replace this installation.");
+      return;
+    }
+
+    // 3️⃣ Update installatie status naar "Fine"
+    await UPDATE.entity(Installation)
+      .set({ status: "Fine" })
+      .where({ ID: id });
+
+    // 4️⃣ Verminder voorraad
+    await UPDATE.entity(ProductCamera)
+      .set({ amountInStock: camera.amountInStock - 1 })
+      .where({ ID: productId });
+
+    // 5️⃣ Geef boodschap terug aan UI
+    return { message: "🔧 Damaged camera replaced successfully." };
+  } catch (err) {
+    console.error("replaceInstallation failed:", err);
+    req.error(500, "Internal server error during replacement.");
+  }
 };

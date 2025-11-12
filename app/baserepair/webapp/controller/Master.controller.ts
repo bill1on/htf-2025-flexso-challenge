@@ -15,6 +15,13 @@ import ProcessFlowLaneHeader from "sap/suite/ui/commons/ProcessFlowLaneHeader";
 import ProcessFlow from "sap/suite/ui/commons/ProcessFlow";
 import ListItem from "sap/ui/core/ListItem";
 import ui5Event from "sap/ui/base/Event";
+import MessageToast from "sap/m/MessageToast";
+import MessageBox from "sap/m/MessageBox";
+import CustomListItem from "sap/m/CustomListItem";
+import Button from "sap/m/Button";
+import ColumnListItem from "sap/m/ColumnListItem";
+import ODataModelV2 from "sap/ui/model/odata/v2/ODataModel";
+import ODataModelV4 from "sap/ui/model/odata/v4/ODataModel";
 /**
  * @namespace flexso.cap.htf.baserepair.controller
  */
@@ -30,14 +37,32 @@ export default class Master extends Controller {
   }
 
   onRouteMatched() {
-    this.getView()?.bindObject({
-      path: "/ProductCamera('0a85863f-100d-4e0b-91a1-89897f4490d6')",
-      parameters: {
-        $expand: "materials",
-      },
-    });
+    const oView = this.getView();
+
+    oView?.bindElement({
+    path: "/ProductCamera('0a85863f-100d-4e0b-91a1-89897f4490d6')",
+    parameters: {
+      expand: "materials", // haal de gerelateerde materialen ook op
+    },
+  });
 
     this.table = this.byId("idMaterialTable") as Table;
+
+    const oElementBinding = oView?.getElementBinding();
+  if (oElementBinding) {
+    oElementBinding.attachEventOnce("dataReceived", () => {
+      const oContext = oElementBinding.getBoundContext();
+      if (oContext) {
+        // Bind de tabel-items relatief aan de 'materials' property
+        this.table.bindItems({
+          path: "materials",
+          template: (this.table as any)
+            .getBindingInfo("items")
+            ?.template?.clone(), // hergebruik de XML-template
+        });
+      }
+    });
+  }
   }
 
   async order() {
@@ -106,10 +131,40 @@ export default class Master extends Controller {
   }
 
   async produce() {
-    //HACK THE FUTURE Challenge:
-    //Write code to trigger AdminService.produce action 
-    //You can base yourself on existing action code from the symboltranslation app
+  BusyIndicator.show();
+
+  try {
+    const oView = this.getView();
+    const oModel = oView?.getModel();
+    const oCtx = oView?.getBindingContext() as Context; // ProductCamera context
+
+    if (!oCtx || !oModel) {
+      console.error("No bound ProductCamera context found");
+      BusyIndicator.hide();
+      return;
+    }
+
+    // Bind de produce-actie aan de ProductCamera
+    const contextBinding = oModel.bindContext(
+      `${oCtx.getPath()}/AdminService.produce(...)`,
+      oCtx
+    ) as ODataContextBinding;
+
+    // Geef eventueel parameters mee als je backend ze verwacht
+    contextBinding.setParameter("id", oCtx.getProperty("ID"));
+
+    await contextBinding.invoke();
+
+    // Refresh na productie
+    this.refresh();
+
+  } catch (err) {
+    console.error("Produce failed:", err);
+  } finally {
+    BusyIndicator.hide();
   }
+}
+
 
   refeshProducton() {
     const processFlow = this.byId("processflow") as ProcessFlow;
@@ -117,9 +172,36 @@ export default class Master extends Controller {
   }
 
   async replaceCamera(event: ui5Event) {
-    const listItem = event.getParameter("listItem" as never) as ListItem;
-    //HACK THE FUTURE Challenge:
-    //Write code to trigger AdminService.replace action on the selected installation
-    //Some backend code will have to be implemented as well!
-  }
+    BusyIndicator.show();
+    try {
+        const button = event.getSource() as Button;
+        const listItem = button.getParent()?.getParent() as ColumnListItem;
+        if (!listItem) throw new Error("Kan de rij niet vinden.");
+
+        const modelName = "mainService"; // je OData V4 model naam
+        const ctx = listItem.getBindingContext(modelName) as Context;
+        if (!ctx) throw new Error("Kan de OData V4 context niet vinden.");
+
+        const model = this.getView()?.getModel() as ODataModelV4;
+
+        // Bind aan de action
+        const actionContext = model.bindContext("/replaceInstallation(...)", ctx);
+        actionContext.setParameter("id", ctx.getProperty("ID"));
+
+        // Execute action
+        await actionContext.execute();
+
+        MessageToast.show("✅ Camera replaced successfully");
+
+        // Refresh tabel
+        const table = this.byId("idInstallations") as any;
+        table.getModel()?.refresh();
+
+    } catch (err: any) {
+        MessageBox.error(err.message || "❌ Failed to replace camera");
+    } finally {
+        BusyIndicator.hide();
+    }
+}
+
 }
