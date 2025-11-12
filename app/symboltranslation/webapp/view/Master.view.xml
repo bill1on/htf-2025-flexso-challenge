@@ -43,7 +43,7 @@
                 </headerToolbar>
                 <columns>
                     <Column>
-                        <Text text="Value" />
+                        <Text text="Icon" />
                     </Column>
                     <Column>
                         <Text text="Where found" />
