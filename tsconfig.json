@@ -17,7 +17,8 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {
       "#cds-models/*": ["./@cds-models/*/index.ts"]
-    }
+    },
+    "types": ["@cap-js/cds-types"]
   },
   "include": [
     "./srv/**/*"

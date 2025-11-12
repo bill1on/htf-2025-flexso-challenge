@@ -20,11 +20,39 @@
             </ObjectHeader>
             <IconTabBar id="_IDGenIconTabBar" expanded="true" class="sapUiSmallMarginBottom sapUiResponsiveContentPadding">
                 <items>
-                    <IconTabFilter id="_IDGenIconTabFilter" key="Parts" text="Parts">
-                        <!-- HACK THE FUTURE Challenge: Here we should have an overview of materials -->
-                        <!-- Can you display them as a table?-->
-                        <!-- It should be possible to perform the actions 'order' and 'refresh' on them-->
+                    <!-- Parts / Materials tab -->
+                    <IconTabFilter text="Parts">
+                        <VBox class="sapUiSmallMargin">
+                            <Table id="idMaterialTable"
+                                items="{materials}">
+                                <headerToolbar>
+                                    <Toolbar>
+                                        <Title text="Materials" />
+                                        <ToolbarSpacer />
+                                        <Button icon="sap-icon://create" text="Order" press="order" />
+                                        <Button icon="sap-icon://synchronize" type="Transparent" press="refresh" />
+                                    </Toolbar>
+                                </headerToolbar>
 
+                                <columns>
+                                    <Column><Text text="Material" /></Column>
+                                    <Column><Text text="ID" /></Column>
+                                    <Column><Text text="Amount" /></Column>
+                                    <Column><Text text="Order" /></Column>
+                                </columns>
+
+                                <items>
+                                    <ColumnListItem>
+                                        <cells>
+                                            <ObjectIdentifier title="{name}" />
+                                            <Text text="{ID}" />
+                                            <ObjectNumber number="{amountInStock}" unit="pcs" />
+                                            <Text text="{amountOrderd}" />
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
                     </IconTabFilter>
                     <IconTabFilter id="_IDGenIconTabFilter1" key="Production" text="Production">
                         <Button id="_IDGenButton" text="Produce {name}" press="produce"></Button>
@@ -43,9 +71,39 @@
                             </m:lanes>
                         </m:ProcessFlow>
                     </IconTabFilter>
-                    <IconTabFilter id="_IDGenIconTabFilter2" key="Installations" text="Installations">
-                        <!-- HACK THE FUTURE Challenge: Here we should have an overview of all installations of this product -->
-                        <!-- It should be possible to execute the function replaceCamera on an entry-->
+                    <IconTabFilter key="Installations" text="Installations">
+                        <VBox class="sapUiSmallMargin">
+                            <Table id="idInstallationsTable" items="{installations}">
+                                <headerToolbar>
+                                    <Toolbar>
+                                        <Title text="Installations" />
+                                        <ToolbarSpacer />
+                                        <Button icon="sap-icon://synchronize" press="refresh" type="Transparent" />
+                                    </Toolbar>
+                                </headerToolbar>
+
+                                <columns>
+                                    <Column><Text text="Location" /></Column>
+                                    <Column><Text text="Status" /></Column>
+                                    <Column><Text text="Product" /></Column>
+                                    <Column hAlign="Center" width="8rem"><Text text="Action" /></Column>
+                                </columns>
+
+                                <items>
+                                    <ColumnListItem>
+                                        <cells>
+                                            <Text text="{location}" />
+                                            <ObjectStatus text="{status}" state="{= ${status} === 'Fine' ? 'Success' : 'Error'}" />
+                                            <Text text="{product}" />
+                                            <Button text="Replace"
+                                                    type="Emphasized"
+                                                    press=".replaceCamera"
+                                                    enabled="{= ${status} === 'Damaged'}" />
+                                        </cells>
+                                    </ColumnListItem>
+                                </items>
+                            </Table>
+                        </VBox>
                     </IconTabFilter>
                 </items>
             </IconTabBar>
